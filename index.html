@@ -1,0 +1,1284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FocusTube — Distraction-Free YouTube</title>
+  <meta name="description" content="Watch YouTube videos without distractions. No ads, no sidebar, no comments. Just the video." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    /* ===== RESET & BASE ===== */
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #0a0a0a;
+      color: #ffffff;
+      min-height: 100vh;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* ===== CSS CUSTOM PROPERTIES ===== */
+    :root {
+      --bg-primary: #0a0a0a;
+      --bg-card: #111111;
+      --bg-input: #1a1a1a;
+      --accent-gradient: linear-gradient(135deg, #7c3aed, #2563eb);
+      --accent-purple: #7c3aed;
+      --accent-blue: #2563eb;
+      --text-primary: #ffffff;
+      --text-secondary: #888888;
+      --border-color: #222222;
+      --navbar-bg: #111111;
+      --transition-fast: 200ms ease;
+      --transition-normal: 300ms ease;
+      --transition-smooth: 400ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* ===== SCREEN MANAGEMENT ===== */
+    .screen {
+      min-height: 100vh;
+      opacity: 0;
+      transition: opacity var(--transition-normal);
+      display: none;
+    }
+
+    .screen.active {
+      display: flex;
+      /* Trigger reflow for animation */
+    }
+
+    .screen.visible {
+      opacity: 1;
+    }
+
+    /* ===== LANDING SCREEN ===== */
+    #landing-screen {
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    /* Ambient glow behind card */
+    .ambient-glow {
+      position: absolute;
+      width: 500px;
+      height: 500px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(124, 58, 237, 0.12) 0%, rgba(37, 99, 235, 0.06) 40%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+      filter: blur(40px);
+      animation: glowPulse 6s ease-in-out infinite;
+    }
+
+    @keyframes glowPulse {
+      0%, 100% { transform: scale(1); opacity: 0.8; }
+      50% { transform: scale(1.08); opacity: 1; }
+    }
+
+    /* Landing card */
+    .landing-card {
+      position: relative;
+      z-index: 1;
+      width: 90%;
+      max-width: 500px;
+      padding: 48px 36px;
+      border-radius: 24px;
+      background: rgba(17, 17, 17, 0.65);
+      backdrop-filter: blur(24px) saturate(1.4);
+      -webkit-backdrop-filter: blur(24px) saturate(1.4);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.03),
+        0 24px 80px rgba(0, 0, 0, 0.5),
+        0 0 120px rgba(124, 58, 237, 0.06);
+      text-align: center;
+    }
+
+    /* Logo */
+    .logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .logo-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: var(--accent-gradient);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 20px rgba(124, 58, 237, 0.35);
+    }
+
+    .logo-icon svg {
+      width: 22px;
+      height: 22px;
+      fill: white;
+    }
+
+    .logo-text {
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: var(--accent-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .tagline {
+      color: var(--text-secondary);
+      font-size: 16px;
+      font-weight: 400;
+      margin-bottom: 36px;
+      letter-spacing: 0.2px;
+    }
+
+    /* Input group */
+    .input-group {
+      position: relative;
+      margin-bottom: 16px;
+    }
+
+    .url-input {
+      width: 100%;
+      padding: 16px 20px;
+      border-radius: 14px;
+      border: 2px solid var(--border-color);
+      background: var(--bg-input);
+      color: var(--text-primary);
+      font-family: 'Inter', sans-serif;
+      font-size: 15px;
+      font-weight: 400;
+      outline: none;
+      transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    }
+
+    .url-input::placeholder {
+      color: #555;
+    }
+
+    .url-input:focus {
+      border-color: var(--accent-purple);
+      box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+    }
+
+    .url-input.error {
+      border-color: #ef4444;
+      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+      animation: shake 0.4s ease;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-8px); }
+      40% { transform: translateX(8px); }
+      60% { transform: translateX(-6px); }
+      80% { transform: translateX(4px); }
+    }
+
+    .error-message {
+      color: #ef4444;
+      font-size: 13px;
+      margin-top: 8px;
+      text-align: left;
+      padding-left: 4px;
+      opacity: 0;
+      height: 0;
+      overflow: hidden;
+      transition: opacity var(--transition-fast), height var(--transition-fast);
+    }
+
+    .error-message.show {
+      opacity: 1;
+      height: 20px;
+    }
+
+    /* CTA Button */
+    .cta-button {
+      width: 100%;
+      padding: 16px 24px;
+      border: none;
+      border-radius: 14px;
+      background: var(--accent-gradient);
+      color: white;
+      font-family: 'Inter', sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+      position: relative;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+
+    .cta-button::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.1), transparent);
+      opacity: 0;
+      transition: opacity var(--transition-fast);
+    }
+
+    .cta-button:hover {
+      transform: scale(1.02);
+      box-shadow: 0 8px 32px rgba(124, 58, 237, 0.35), 0 0 60px rgba(37, 99, 235, 0.15);
+    }
+
+    .cta-button:hover::before {
+      opacity: 1;
+    }
+
+    .cta-button:active {
+      transform: scale(0.98);
+    }
+
+    .subtitle {
+      color: #555;
+      font-size: 13px;
+      margin-top: 20px;
+      line-height: 1.5;
+    }
+
+    /* ===== PLAYER SCREEN ===== */
+    #player-screen {
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    /* Navbar */
+    .navbar {
+      height: 60px;
+      background: var(--navbar-bg);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    .nav-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 100px;
+    }
+
+    .back-button {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      padding: 8px 12px;
+      border-radius: 8px;
+      transition: color var(--transition-fast), background var(--transition-fast);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .back-button:hover {
+      color: var(--text-primary);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .nav-center {
+      flex: 1;
+      text-align: center;
+      overflow: hidden;
+      padding: 0 16px;
+    }
+
+    .video-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 100px;
+      justify-content: flex-end;
+    }
+
+    /* Copy URL button */
+    .copy-url-btn {
+      background: none;
+      border: 1px solid var(--border-color);
+      color: var(--text-secondary);
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      padding: 6px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .copy-url-btn:hover {
+      color: var(--text-primary);
+      border-color: #444;
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .copy-url-btn.copied {
+      color: #22c55e;
+      border-color: rgba(34, 197, 94, 0.3);
+    }
+
+    /* Focus toggle */
+    .focus-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 6px 14px;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+
+    .focus-toggle:hover {
+      border-color: #444;
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .focus-toggle.on {
+      border-color: rgba(124, 58, 237, 0.4);
+      background: rgba(124, 58, 237, 0.08);
+      color: #a78bfa;
+    }
+
+    .toggle-switch {
+      width: 36px;
+      height: 20px;
+      border-radius: 10px;
+      background: #333;
+      position: relative;
+      transition: background var(--transition-normal);
+    }
+
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #888;
+      transition: transform var(--transition-normal), background var(--transition-normal);
+    }
+
+    .focus-toggle.on .toggle-switch {
+      background: var(--accent-purple);
+    }
+
+    .focus-toggle.on .toggle-switch::after {
+      transform: translateX(16px);
+      background: white;
+    }
+
+    /* Main content area */
+    .main-content {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      padding: 32px 20px 40px;
+      gap: 24px;
+      transition: all var(--transition-smooth);
+    }
+
+    .player-column {
+      flex: 1;
+      max-width: 900px;
+      width: 100%;
+      transition: max-width var(--transition-smooth);
+    }
+
+    .player-column.theater {
+      max-width: 95vw;
+    }
+
+    /* Video container - 16:9 aspect ratio */
+    .video-container {
+      position: relative;
+      width: 100%;
+      padding-bottom: 56.25%; /* 16:9 */
+      background: #000;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+    }
+
+    .video-container iframe {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    /* Video load error */
+    .video-error {
+      position: absolute;
+      inset: 0;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #111;
+      color: var(--text-secondary);
+      font-size: 16px;
+      gap: 12px;
+      border-radius: 16px;
+    }
+
+    .video-error.show {
+      display: flex;
+    }
+
+    .video-error-icon {
+      font-size: 48px;
+      opacity: 0.5;
+    }
+
+    /* Controls bar below video */
+    .controls-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 16px;
+      padding: 0 4px;
+    }
+
+    .theater-btn {
+      background: none;
+      border: 1px solid var(--border-color);
+      color: var(--text-secondary);
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 8px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .theater-btn:hover {
+      color: var(--text-primary);
+      border-color: #444;
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .theater-btn.active {
+      color: #a78bfa;
+      border-color: rgba(124, 58, 237, 0.4);
+      background: rgba(124, 58, 237, 0.08);
+    }
+
+    .keyboard-hints {
+      display: flex;
+      gap: 12px;
+      color: #444;
+      font-size: 12px;
+    }
+
+    .keyboard-hints kbd {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid #333;
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      color: #666;
+    }
+
+    /* Description area */
+    .description-card {
+      margin-top: 20px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+
+    .description-header {
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      transition: background var(--transition-fast);
+    }
+
+    .description-header:hover {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .description-header h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .description-toggle-icon {
+      color: var(--text-secondary);
+      transition: transform var(--transition-normal);
+      font-size: 18px;
+    }
+
+    .description-toggle-icon.open {
+      transform: rotate(180deg);
+    }
+
+    .description-body {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height var(--transition-smooth);
+    }
+
+    .description-body.open {
+      max-height: 400px;
+    }
+
+    .description-text {
+      padding: 0 20px 20px;
+      color: var(--text-secondary);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    /* Sidebar (Focus Mode OFF) */
+    .sidebar {
+      width: 0;
+      overflow: hidden;
+      opacity: 0;
+      transition: width var(--transition-smooth), opacity var(--transition-smooth), padding var(--transition-smooth);
+    }
+
+    .sidebar.visible {
+      width: 280px;
+      opacity: 1;
+    }
+
+    .sidebar-inner {
+      width: 280px;
+      padding: 24px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      min-height: 200px;
+    }
+
+    .sidebar-warning-icon {
+      font-size: 28px;
+      margin-bottom: 12px;
+    }
+
+    .sidebar-inner h4 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #f59e0b;
+      margin-bottom: 8px;
+    }
+
+    .sidebar-inner p {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    .sidebar-tip {
+      margin-top: 16px;
+      padding: 12px;
+      background: rgba(124, 58, 237, 0.06);
+      border: 1px solid rgba(124, 58, 237, 0.15);
+      border-radius: 10px;
+      font-size: 12px;
+      color: #a78bfa;
+      line-height: 1.5;
+    }
+
+    /* ===== TOOLTIP ===== */
+    .tooltip {
+      position: fixed;
+      background: #1a1a1a;
+      color: var(--text-primary);
+      font-size: 13px;
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity var(--transition-fast);
+      z-index: 1000;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+
+    .tooltip.show {
+      opacity: 1;
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 768px) {
+      .landing-card {
+        padding: 36px 24px;
+      }
+
+      .logo-text {
+        font-size: 26px;
+      }
+
+      .ambient-glow {
+        width: 350px;
+        height: 350px;
+      }
+
+      .main-content {
+        padding: 20px 12px 32px;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .sidebar.visible {
+        width: 100%;
+      }
+
+      .sidebar-inner {
+        width: 100%;
+      }
+
+      .video-container {
+        border-radius: 12px;
+      }
+
+      .navbar {
+        padding: 0 12px;
+      }
+
+      .focus-toggle .toggle-label {
+        display: none;
+      }
+
+      .copy-url-btn span {
+        display: none;
+      }
+
+      .keyboard-hints {
+        display: none;
+      }
+    }
+
+    @media (max-width: 400px) {
+      .nav-center {
+        display: none;
+      }
+
+      .landing-card {
+        padding: 28px 18px;
+      }
+
+      .logo-text {
+        font-size: 24px;
+      }
+
+      .url-input {
+        font-size: 14px;
+        padding: 14px 16px;
+      }
+
+      .cta-button {
+        font-size: 15px;
+        padding: 14px 20px;
+      }
+    }
+
+    /* ===== PARTICLES (subtle background) ===== */
+    .particles {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+
+    .particle {
+      position: absolute;
+      width: 2px;
+      height: 2px;
+      background: rgba(124, 58, 237, 0.2);
+      border-radius: 50%;
+      animation: float linear infinite;
+    }
+
+    @keyframes float {
+      0% { transform: translateY(100vh) scale(0); opacity: 0; }
+      10% { opacity: 1; }
+      90% { opacity: 1; }
+      100% { transform: translateY(-10vh) scale(1); opacity: 0; }
+    }
+
+    /* ===== TOAST NOTIFICATION ===== */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      padding: 12px 24px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 500;
+      opacity: 0;
+      transition: all var(--transition-normal);
+      z-index: 9999;
+      pointer-events: none;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Background particles -->
+  <div class="particles" id="particles"></div>
+
+  <!-- Toast notification -->
+  <div class="toast" id="toast"></div>
+
+  <!-- ===== LANDING SCREEN ===== -->
+  <div class="screen active" id="landing-screen">
+    <div class="ambient-glow"></div>
+    <div class="landing-card">
+      <div class="logo">
+        <div class="logo-icon">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="M8 5.14v14l11-7-11-7z" />
+          </svg>
+        </div>
+        <span class="logo-text">FocusTube</span>
+      </div>
+      <p class="tagline">Watch without the noise.</p>
+
+      <div class="input-group">
+        <input
+          type="text"
+          class="url-input"
+          id="url-input"
+          placeholder="Paste YouTube URL here..."
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <div class="error-message" id="error-message"></div>
+      </div>
+
+      <button class="cta-button" id="enter-btn" type="button">
+        ▶ Enter Focus Mode
+      </button>
+
+      <p class="subtitle">No ads. No sidebar. No comments. Just the video.</p>
+    </div>
+  </div>
+
+  <!-- ===== PLAYER SCREEN ===== -->
+  <div class="screen" id="player-screen">
+    <nav class="navbar">
+      <div class="nav-left">
+        <button class="back-button" id="back-btn" type="button">
+          ← Back
+        </button>
+      </div>
+      <div class="nav-center">
+        <div class="video-title" id="video-title">Loading video...</div>
+      </div>
+      <div class="nav-right">
+        <button class="copy-url-btn" id="copy-url-btn" type="button" title="Copy video URL">
+          📋 <span>Copy URL</span>
+        </button>
+        <button class="focus-toggle on" id="focus-toggle" type="button">
+          <span class="toggle-switch"></span>
+          <span class="toggle-label">🎯 Focus: ON</span>
+        </button>
+      </div>
+    </nav>
+
+    <div class="main-content">
+      <div class="player-column" id="player-column">
+        <div class="video-container" id="video-container">
+          <div id="youtube-player"></div>
+          <div class="video-error" id="video-error">
+            <div class="video-error-icon">📺</div>
+            <div>Video could not be loaded.</div>
+          </div>
+        </div>
+
+        <div class="controls-bar">
+          <button class="theater-btn" id="theater-btn" type="button">
+            🖥 Theater Mode
+          </button>
+          <div class="keyboard-hints">
+            <span><kbd>F</kbd> Focus</span>
+            <span><kbd>T</kbd> Theater</span>
+          </div>
+        </div>
+
+        <div class="description-card" id="description-card">
+          <div class="description-header" id="description-header">
+            <h3>Description</h3>
+            <span class="description-toggle-icon" id="desc-icon">▼</span>
+          </div>
+          <div class="description-body" id="description-body">
+            <p class="description-text" id="description-text">
+              Video description will appear here once the video loads.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-inner">
+          <div class="sidebar-warning-icon">⚠️</div>
+          <h4>Focus Mode Disabled</h4>
+          <p>Distractions may appear. YouTube related videos and suggestions won't be hidden.</p>
+          <div class="sidebar-tip">
+            💡 <strong>Tip:</strong> Press <kbd style="background:rgba(255,255,255,0.08);border:1px solid #444;border-radius:3px;padding:1px 5px;font-size:11px;">F</kbd> to quickly re-enable Focus Mode.
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script>
+    // ===== STATE =====
+    const state = {
+      currentVideoId: null,
+      focusMode: true,
+      theaterMode: false,
+      player: null,
+      playerReady: false,
+    };
+
+    // ===== DOM ELEMENTS =====
+    const $ = (sel) => document.querySelector(sel);
+    const landingScreen = $('#landing-screen');
+    const playerScreen = $('#player-screen');
+    const urlInput = $('#url-input');
+    const errorMsg = $('#error-message');
+    const enterBtn = $('#enter-btn');
+    const backBtn = $('#back-btn');
+    const focusToggle = $('#focus-toggle');
+    const theaterBtn = $('#theater-btn');
+    const playerColumn = $('#player-column');
+    const sidebar = $('#sidebar');
+    const videoTitle = $('#video-title');
+    const descHeader = $('#description-header');
+    const descBody = $('#description-body');
+    const descText = $('#description-text');
+    const descIcon = $('#desc-icon');
+    const copyUrlBtn = $('#copy-url-btn');
+    const videoError = $('#video-error');
+    const toast = $('#toast');
+
+    // ===== PARTICLES =====
+    function createParticles() {
+      const container = $('#particles');
+      for (let i = 0; i < 30; i++) {
+        const p = document.createElement('div');
+        p.className = 'particle';
+        p.style.left = Math.random() * 100 + '%';
+        p.style.animationDuration = (8 + Math.random() * 16) + 's';
+        p.style.animationDelay = Math.random() * 10 + 's';
+        p.style.width = p.style.height = (1 + Math.random() * 2) + 'px';
+        container.appendChild(p);
+      }
+    }
+    createParticles();
+
+    // ===== URL PARSING =====
+    function extractVideoId(url) {
+      if (!url || typeof url !== 'string') return null;
+      url = url.trim();
+
+      const patterns = [
+        // Standard watch URL
+        /(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?.*v=([a-zA-Z0-9_-]{11})/,
+        // Shortened URL
+        /(?:https?:\/\/)?youtu\.be\/([a-zA-Z0-9_-]{11})/,
+        // Embed URL
+        /(?:https?:\/\/)?(?:www\.)?youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/,
+        // Shorts URL
+        /(?:https?:\/\/)?(?:www\.)?youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/,
+        // Live URL
+        /(?:https?:\/\/)?(?:www\.)?youtube\.com\/live\/([a-zA-Z0-9_-]{11})/,
+      ];
+
+      for (const pattern of patterns) {
+        const match = url.match(pattern);
+        if (match && match[1]) return match[1];
+      }
+
+      // Last resort: if it looks like just a video ID
+      if (/^[a-zA-Z0-9_-]{11}$/.test(url)) return url;
+
+      return null;
+    }
+
+    // ===== ERROR HANDLING =====
+    function showError(msg) {
+      errorMsg.textContent = msg;
+      errorMsg.classList.add('show');
+      urlInput.classList.add('error');
+    }
+
+    function clearError() {
+      errorMsg.classList.remove('show');
+      urlInput.classList.remove('error');
+    }
+
+    // ===== TOAST =====
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2200);
+    }
+
+    // ===== SCREEN TRANSITIONS =====
+    function showScreen(screenToShow, screenToHide) {
+      // Fade out current
+      screenToHide.classList.remove('visible');
+
+      setTimeout(() => {
+        screenToHide.classList.remove('active');
+        screenToShow.classList.add('active');
+
+        // Force reflow
+        void screenToShow.offsetHeight;
+
+        // Fade in
+        requestAnimationFrame(() => {
+          screenToShow.classList.add('visible');
+        });
+
+        // Scroll to top
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 300);
+    }
+
+    // ===== YOUTUBE IFRAME API =====
+    function loadYouTubeAPI() {
+      if (window.YT && window.YT.Player) return;
+      const tag = document.createElement('script');
+      tag.src = 'https://www.youtube.com/iframe_api';
+      document.head.appendChild(tag);
+    }
+
+    // Called by YouTube API when ready
+    window.onYouTubeIframeAPIReady = function () {
+      // API is ready; player will be created when needed
+    };
+
+    function getEmbedParams() {
+      const params = {
+        rel: 0,
+        modestbranding: 1,
+        iv_load_policy: 3,
+        disablekb: 0,
+        fs: 1,
+        color: 'white',
+        playsinline: 1,
+        autoplay: 1,
+      };
+      return params;
+    }
+
+    function createPlayer(videoId) {
+      state.currentVideoId = videoId;
+
+      // Destroy existing player
+      if (state.player) {
+        try { state.player.destroy(); } catch (e) { /* ignore */ }
+        state.player = null;
+        state.playerReady = false;
+      }
+
+      videoError.classList.remove('show');
+
+      // Ensure the target div exists
+      let targetEl = document.getElementById('youtube-player');
+      if (!targetEl) {
+        targetEl = document.createElement('div');
+        targetEl.id = 'youtube-player';
+        document.getElementById('video-container').insertBefore(targetEl, videoError);
+      }
+
+      if (window.YT && window.YT.Player) {
+        buildPlayer(videoId);
+      } else {
+        // Wait for API
+        const check = setInterval(() => {
+          if (window.YT && window.YT.Player) {
+            clearInterval(check);
+            buildPlayer(videoId);
+          }
+        }, 100);
+      }
+    }
+
+    function buildPlayer(videoId) {
+      state.player = new YT.Player('youtube-player', {
+        videoId: videoId,
+        width: '100%',
+        height: '100%',
+        playerVars: getEmbedParams(),
+        events: {
+          onReady: onPlayerReady,
+          onError: onPlayerError,
+          onStateChange: onPlayerStateChange,
+        },
+      });
+    }
+
+    function onPlayerReady(event) {
+      state.playerReady = true;
+      // Fetch video title from the player
+      try {
+        const data = event.target.getVideoData();
+        if (data && data.title) {
+          videoTitle.textContent = data.title;
+          descText.textContent = `Now playing: ${data.title}`;
+        }
+      } catch (e) {
+        videoTitle.textContent = 'FocusTube Player';
+      }
+    }
+
+    function onPlayerError(event) {
+      videoError.classList.add('show');
+    }
+
+    function onPlayerStateChange(event) {
+      // Update title when video changes
+      if (event.data === YT.PlayerState.PLAYING) {
+        try {
+          const data = event.target.getVideoData();
+          if (data && data.title) {
+            videoTitle.textContent = data.title;
+          }
+        } catch (e) { /* ignore */ }
+      }
+    }
+
+    // ===== FOCUS MODE =====
+    function setFocusMode(on) {
+      state.focusMode = on;
+      if (on) {
+        focusToggle.classList.add('on');
+        focusToggle.querySelector('.toggle-label').textContent = '🎯 Focus: ON';
+        sidebar.classList.remove('visible');
+      } else {
+        focusToggle.classList.remove('on');
+        focusToggle.querySelector('.toggle-label').textContent = 'Focus: OFF';
+        sidebar.classList.add('visible');
+      }
+    }
+
+    // ===== THEATER MODE =====
+    function setTheaterMode(on) {
+      state.theaterMode = on;
+      if (on) {
+        playerColumn.classList.add('theater');
+        theaterBtn.classList.add('active');
+        theaterBtn.innerHTML = '🖥 Exit Theater';
+      } else {
+        playerColumn.classList.remove('theater');
+        theaterBtn.classList.remove('active');
+        theaterBtn.innerHTML = '🖥 Theater Mode';
+      }
+    }
+
+    // ===== EVENT LISTENERS =====
+
+    // Enter button
+    enterBtn.addEventListener('click', () => {
+      const url = urlInput.value.trim();
+      clearError();
+
+      if (!url) {
+        showError('Please enter a YouTube URL');
+        urlInput.focus();
+        return;
+      }
+
+      const videoId = extractVideoId(url);
+      if (!videoId) {
+        showError('Invalid YouTube URL. Please try again.');
+        urlInput.focus();
+        return;
+      }
+
+      // Navigate to player
+      showScreen(playerScreen, landingScreen);
+      createPlayer(videoId);
+      setFocusMode(true);
+      setTheaterMode(false);
+    });
+
+    // Enter key on input
+    urlInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        enterBtn.click();
+      }
+    });
+
+    // Clear error on input change
+    urlInput.addEventListener('input', clearError);
+
+    // Back button
+    backBtn.addEventListener('click', () => {
+      showScreen(landingScreen, playerScreen);
+      // Destroy player
+      if (state.player) {
+        try { state.player.destroy(); } catch (e) { /* ignore */ }
+        state.player = null;
+        state.playerReady = false;
+      }
+      // Reset the target div
+      const container = document.getElementById('video-container');
+      const existingPlayer = document.getElementById('youtube-player');
+      if (existingPlayer) existingPlayer.remove();
+      const newDiv = document.createElement('div');
+      newDiv.id = 'youtube-player';
+      container.insertBefore(newDiv, videoError);
+
+      state.currentVideoId = null;
+      videoTitle.textContent = 'Loading video...';
+    });
+
+    // Focus toggle
+    focusToggle.addEventListener('click', () => {
+      setFocusMode(!state.focusMode);
+      showToast(state.focusMode ? '🎯 Focus Mode enabled' : 'Focus Mode disabled');
+    });
+
+    // Theater mode
+    theaterBtn.addEventListener('click', () => {
+      setTheaterMode(!state.theaterMode);
+      showToast(state.theaterMode ? '🖥 Theater Mode enabled' : 'Theater Mode disabled');
+    });
+
+    // Copy URL
+    copyUrlBtn.addEventListener('click', () => {
+      if (!state.currentVideoId) return;
+      const url = `https://www.youtube.com/watch?v=${state.currentVideoId}`;
+      navigator.clipboard.writeText(url).then(() => {
+        copyUrlBtn.classList.add('copied');
+        copyUrlBtn.innerHTML = '✅ <span>Copied!</span>';
+        showToast('Video URL copied to clipboard');
+        setTimeout(() => {
+          copyUrlBtn.classList.remove('copied');
+          copyUrlBtn.innerHTML = '📋 <span>Copy URL</span>';
+        }, 2000);
+      }).catch(() => {
+        showToast('Failed to copy URL');
+      });
+    });
+
+    // Description toggle
+    descHeader.addEventListener('click', () => {
+      descBody.classList.toggle('open');
+      descIcon.classList.toggle('open');
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      // Don't trigger when typing in input
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      // Only on player screen
+      if (!playerScreen.classList.contains('active')) return;
+
+      if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        setFocusMode(!state.focusMode);
+        showToast(state.focusMode ? '🎯 Focus Mode enabled' : 'Focus Mode disabled');
+      }
+
+      if (e.key === 't' || e.key === 'T') {
+        e.preventDefault();
+        setTheaterMode(!state.theaterMode);
+        showToast(state.theaterMode ? '🖥 Theater Mode enabled' : 'Theater Mode disabled');
+      }
+
+      // Escape to go back
+      if (e.key === 'Escape') {
+        backBtn.click();
+      }
+    });
+
+    // ===== INITIAL STATE =====
+    // Show landing screen with animation
+    requestAnimationFrame(() => {
+      landingScreen.classList.add('visible');
+    });
+
+    // Load YouTube API early
+    loadYouTubeAPI();
+
+    // Focus the input
+    setTimeout(() => urlInput.focus(), 400);
+  </script>
+</body>
+</html>
